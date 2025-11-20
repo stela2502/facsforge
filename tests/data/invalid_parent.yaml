@@ -1,0 +1,9 @@
+panel:
+  FSC-A:
+    fluor: null
+    role: size
+    ignore: false
+
+celltypes:
+  Live:
+    parent: Singlets   # Singlets does not exist

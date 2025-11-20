@@ -1,0 +1,29 @@
+[project]
+name = "facsforge"
+version = "0.1.0"
+description = "Automated flow cytometry gating and analysis based on rule-driven YAML definitions"
+authors = [
+    {name = "Stefan Lang"}
+]
+license = {file = "LICENSE"}
+readme = "README.md"
+requires-python = ">=3.9"
+
+dependencies = [
+    "pyyaml",
+    "jsonschema",
+    "numpy",
+    "pandas",
+    "matplotlib",
+    "seaborn",
+    "flowkit",
+    "umap-learn",
+    "hdbscan",
+]
+
+[project.scripts]
+facsforge = "facsforge.cli:main"
+
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"

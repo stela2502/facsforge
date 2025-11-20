@@ -1,0 +1,13 @@
+panel:
+  CD3:
+    fluor: APC
+    role: T_marker
+    ignore: false
+  CD36:
+    fluor: APC
+    role: helper
+    ignore: false
+
+celltypes:
+  T_cells:
+    parent: null

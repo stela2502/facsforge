@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FACSForge Experiment Schema",
+  "type": "object",
+  "required": ["panel", "celltypes"],
+
+  "properties": {
+
+    "metadata": {
+      "type": "object",
+      "required": ["experiment_name", "operator", "date"],
+      "properties": {
+        "experiment_name": { "type": "string" },
+        "operator": { "type": "string" },
+        "date": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "notes": { "type": "string" }
+      }
+    },
+
+    "panel": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "required": ["fluor", "role", "ignore"],
+        "properties": {
+          "fluor": {
+            "type": ["string", "null"]
+          },
+          "role": {
+            "type": ["string", "null"]
+          },
+          "ignore": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+
+    "ignore_markers": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+
+    "compensation": {
+      "type": "object",
+      "required": ["source"],
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": ["fcs", "file", "none"]
+        },
+        "path": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+
+    "celltypes": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+
+          "parent": {
+            "type": ["string", "null"]
+          },
+
+          "gate": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["polygon", "rectangle", "threshold"]
+              },
+
+              "channels": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+
+              "vertices": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": { "type": "number" },
+                  "minItems": 2,
+                  "maxItems": 2
+                }
+              },
+
+              "channel": { "type": "string" },
+              "min": { "type": "number" },
+              "max": { "type": "number" }
+            },
+
+            "additionalProperties": false
+          },
+
+          "positive": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+
+          "negative": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+
+        "additionalProperties": false
+      }
+    },
+
+    "celltypes_of_interest": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "umap": {
+      "type": "object",
+      "properties": {
+        "enabled":   { "type": "boolean" },
+        "markers":   { "type": ["string", "array"], "items": { "type": "string" } },
+        "celltypes": { "type": ["string", "array"], "items": { "type": "string" } },
+        "neighbors": { "type": "integer", "minimum": 2 },
+        "min_dist":  { "type": "number", "minimum": 0 },
+        "metric":    { "type": "string" }
+      },
+      "required": ["enabled"],
+      "additionalProperties": false
+   },
+
+  "additionalProperties": false
+}
+

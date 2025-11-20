@@ -1,0 +1,9 @@
+panel:
+  FSC-A:
+    fluor: null
+    role: size
+    ignore: "not_a_boolean"
+
+celltypes:
+  Singlets:
+    parent: null

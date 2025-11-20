@@ -1,0 +1,12 @@
+panel:
+  FSC-A:
+    fluor: null
+    role: size
+    ignore: false
+
+celltypes:
+  Singlets:
+    parent: null
+
+celltypes_of_interest:
+  - Singlets

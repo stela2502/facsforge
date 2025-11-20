@@ -1,0 +1,20 @@
+# Basic example - replace with real panel
+panel:
+  FSC-A:
+    fluor: null
+    role: size
+    ignore: false
+
+celltypes:
+  Singlets:
+    parent: null
+
+celltypes_of_interest:
+  - Singlets
+umap:
+  enabled: true
+  markers: auto
+  celltypes: auto
+  neighbors: 30
+  min_dist: 0.2
+  metric: euclidean
