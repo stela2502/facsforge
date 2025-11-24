@@ -10,7 +10,8 @@ readme = "README.md"
 requires-python = ">=3.9"
 
 dependencies = [
-    "pyyaml",
+    "pyyaml", 
+    "flask>=2.3.0",
     "jsonschema",
     "numpy",
     "pandas",
@@ -22,7 +23,7 @@ dependencies = [
 ]
 
 [project.scripts]
-facsforge = "facsforge.cli:main"
+facsforge = "facsforge.cli.main:main"
 
 [build-system]
 requires = ["setuptools>=61", "wheel"]

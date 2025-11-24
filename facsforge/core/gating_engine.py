@@ -3,13 +3,31 @@ import pandas as pd
 from pathlib import Path
 
 import flowkit as fk
-from flowkit import PolygonGate, RectangleGate
+from flowkit._models.gates import *
 # flowutils and fcsparser available for extensions later
 
 from facsforge.core.thresholds import compute_auto_thresholds
 from facsforge.core.transforms import prepare_markers
 from facsforge.utils.logging import log_info, log_warn, log_error
 
+from .index import load_index_csv, merge_index_with_fcs, check_well_conflicts
+
+
+def merge_with_index_data(df_raw, index_paths):
+    index_list = []
+    for path in index_paths:
+        idx = load_index_csv(path)
+        index_list.append(idx)
+    index_all = pd.concat(index_list, ignore_index=True)
+
+    # Flag conflicts
+    conflicts = check_well_conflicts(index_all)
+    if len(conflicts) > 0:
+        print("⚠️ Well conflicts detected:")
+        print(conflicts)
+
+    return index_all
+    
 
 def _apply_compensation(sample, experiment):
     """

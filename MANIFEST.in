@@ -1,0 +1,3 @@
+recursive-include facsforge/config *.json
+recursive-include facsforge *.yaml
+recursive-include facsforge *.yml

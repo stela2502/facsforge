@@ -8,6 +8,64 @@ class FACSForgeConfigError(Exception):
     pass
 
 
+def flatten_columns(columns):
+    """
+    A stub that does nothing - just return the columns.
+    """
+    return columns
+
+def validate_panel_channels(panel_dict, df_columns):
+    """
+    Ensure that every YAML panel entry matches an existing FCS/CSV channel.
+    If not, raise a human-friendly error showing EXACT string matches.
+    """
+    df_cols = set(df_columns)
+    yaml_cols = set(panel_dict.keys())
+
+    missing = yaml_cols - df_cols
+
+    if missing:
+        # Build a readable error message
+        error_lines = [
+            "The following channels defined in your YAML panel are not present",
+            "in the FCS/CSV data:",
+            ""
+        ]
+
+        for c in sorted(missing):
+            error_lines.append(f"  - '{c}'")
+
+        error_lines.append("")
+        error_lines.append("Available channels are:")
+        for c in sorted(df_cols):
+            error_lines.append(f"  - '{c}'")
+
+        error_lines.append("")
+        error_lines.append("Please copy one of the above exact strings into your YAML.")
+
+        raise ValueError("\n".join(error_lines))
+
+def enrich_panel_with_missing_channels(panel_dict, df_columns):
+    """
+    Add missing channels to panel_dict with ignore: true.
+    Returns a modified panel_dict.
+    """
+    panel = dict(panel_dict)  # shallow copy
+
+    yaml_cols = set(panel.keys())
+    df_cols = set(df_columns)
+
+    missing_cols = sorted(df_cols - yaml_cols)
+
+    for col in missing_cols:
+        panel[col] = {
+            "fluor": None,
+            "role": None,
+            "ignore": True
+        }
+
+    return panel
+
 def _load_schema():
     """
     Loads the JSON schema from facsforge/config/schema.json.

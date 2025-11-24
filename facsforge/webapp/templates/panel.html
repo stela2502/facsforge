@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>FACSForge Panel Editor</title>
+
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    >
+
+    <style>
+        body {
+            padding-top: 30px;
+            background: #f7f7f7;
+        }
+        .panel-box {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        table {
+            font-size: 0.95rem;
+        }
+        .btn-add {
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+
+<body>
+<div class="container">
+
+    <h2 class="mb-4">🧪 Panel Editor</h2>
+
+    <p class="text-muted">
+        Edit marker roles, fluorochromes, and ignore flags.  
+        Each row corresponds to one entry in the <code>panel:</code> section of your FACSForge config.
+    </p>
+
+    <div class="panel-box">
+        <button class="btn btn-sm btn-outline-success btn-add" onclick="addRow()">➕ Add Marker</button>
+
+        <table id="panelTable" class="table table-bordered table-striped align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Marker</th>
+                    <th>Fluor</th>
+                    <th>Role</th>
+                    <th>Ignore</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for marker, info in panel.items() %}
+                <tr>
+                    <td><input class="form-control marker-name" value="{{ marker }}"></td>
+                    <td><input class="form-control marker-fluor" value="{{ info.fluor }}"></td>
+
+                    <td>
+                        <select class="form-select marker-role">
+                            {% set roles = ["lineage", "viability", "dump", "scatter", "functional", "other", "" ] %}
+                            {% for r in roles %}
+                                <option value="{{ r }}" {% if info.role == r %}selected{% endif %}>
+                                    {{ r if r else "None" }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </td>
+
+                    <td class="text-center">
+                        <input class="form-check-input marker-ignore"
+                               type="checkbox"
+                               {% if info.ignore %}checked{% endif %}>
+                    </td>
+
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-danger" onclick="removeRow(this)">✖</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <button class="btn btn-primary w-100" onclick="savePanel()">💾 Save Panel</button>
+        <a href="/" class="btn btn-secondary w-100 mt-2">⬅ Back</a>
+    </div>
+
+</div>
+
+<script>
+    function addRow() {
+        const tbody = document.querySelector("#panelTable tbody");
+        const newRow = document.createElement("tr");
+
+        newRow.innerHTML = `
+            <td><input class="form-control marker-name" placeholder="Marker"></td>
+            <td><input class="form-control marker-fluor" placeholder="Fluor"></td>
+            <td>
+                <select class="form-select marker-role">
+                    <option value="">None</option>
+                    <option value="lineage">lineage</option>
+                    <option value="viability">viability</option>
+                    <option value="dump">dump</option>
+                    <option value="scatter">scatter</option>
+                    <option value="functional">functional</option>
+                    <option value="other">other</option>
+                </select>
+            </td>
+            <td class="text-center">
+                <input type="checkbox" class="form-check-input marker-ignore">
+            </td>
+            <td class="text-center">
+                <button class="btn btn-sm btn-danger" onclick="removeRow(this)">✖</button>
+            </td>
+        `;
+
+        tbody.appendChild(newRow);
+    }
+
+    function removeRow(button) {
+        button.closest("tr").remove();
+    }
+
+    function savePanel() {
+        const rows = document.querySelectorAll("#panelTable tbody tr");
+        const panel = {};
+
+        rows.forEach(row => {
+            const marker = row.querySelector(".marker-name").value.trim();
+            if (!marker) return;
+
+            panel[marker] = {
+                fluor: row.querySelector(".marker-fluor").value.trim() || null,
+                role: row.querySelector(".marker-role").value.trim() || null,
+                ignore: row.querySelector(".marker-ignore").checked
+            };
+        });
+
+        fetch("/api/panel", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(panel)
+        })
+        .then(r => r.json())
+        .then(j => {
+            alert("Panel saved successfully!");
+            window.location.href = "/";
+        })
+        .catch(err => alert("Error saving: " + err));
+    }
+</script>
+
+</body>
+</html>
+

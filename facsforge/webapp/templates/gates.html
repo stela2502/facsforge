@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>FACSForge Gate Editor</title>
+
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    >
+
+    <style>
+        body {
+            padding-top: 30px;
+            background: #f7f7f7;
+        }
+        .gate-box {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            margin-bottom: 20px;
+        }
+        .gate-header {
+            cursor: pointer;
+            padding: 10px;
+            background-color: #eee;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        .toggle-icon {
+            float: right;
+            font-size: 1.2rem;
+            opacity: 0.7;
+        }
+        .collapsed .toggle-icon {
+            transform: rotate(-90deg);
+        }
+    </style>
+</head>
+
+<body>
+<div class="container">
+
+    <h2 class="mb-4">🧬 Gate & Cell Type Editor</h2>
+
+    <p class="text-muted">
+        These gates were extracted from your FlowJo workspace or YAML config.
+        Here you can rename gates, edit parent relationships, assign cell
+        types, and specify positive/negative marker logic.
+    </p>
+
+    <div id="gatesContainer">
+        {% for gatename, info in gates.items() %}
+        <div class="gate-box" data-gatename="{{ gatename }}">
+            <div class="gate-header collapsed" onclick="toggleGate(this)">
+                <strong>{{ gatename }}</strong>
+                <span class="toggle-icon">▼</span>
+            </div>
+
+            <div class="gate-body" style="display:none;">
+
+                <!-- Rename gate -->
+                <div class="mb-3">
+                    <label class="form-label">Gate Name</label>
+                    <input class="form-control gate-name" value="{{ gatename }}">
+                </div>
+
+                <!-- Parent gate -->
+                <div class="mb-3">
+                    <label class="form-label">Parent Gate</label>
+                    <select class="form-select gate-parent">
+                        <option value="">(None)</option>
+                        {% for parent in gates.keys() %}
+                            {% if parent != gatename %}
+                            <option value="{{ parent }}" {% if info.parent == parent %}selected{% endif %}>
+                                {{ parent }}
+                            </option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Gate type and channels -->
+                <div class="mb-3">
+                    <label class="form-label">Gate Information</label>
+                    <pre style="background:#f8f9fa; padding:10px; border:1px solid #ddd;">
+Type: {{ info.gate.type }}
+{% if info.gate.channels %}
+Channels: {{ info.gate.channels }}
+{% endif %}
+{% if info.gate.vertices %}
+Vertices: {{ info.gate.vertices | tojson }}
+{% endif %}
+{% if info.gate.channel %}
+Channel: {{ info.gate.channel }}
+Min: {{ info.gate.min }}
+Max: {{ info.gate.max }}
+{% endif %}
+                    </pre>
+                </div>
+
+                <!-- Positive markers -->
+                <div class="mb-3">
+                    <label class="form-label">Positive Markers</label>
+                    <input class="form-control gate-positive"
+                           value="{{ info.positive | join(', ') }}">
+                    <small class="text-muted">
+                        Comma-separated list of marker names.
+                    </small>
+                </div>
+
+                <!-- Negative markers -->
+                <div class="mb-3">
+                    <label class="form-label">Negative Markers</label>
+                    <input class="form-control gate-negative"
+                           value="{{ info.negative | join(', ') }}">
+                    <small class="text-muted">
+                        Comma-separated list of marker names.
+                    </small>
+                </div>
+
+                <!-- Remove gate -->
+                <button class="btn btn-sm btn-danger" onclick="removeGate(this)">🗑 Remove Gate</button>
+
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <button class="btn btn-primary w-100" onclick="saveGates()">💾 Save Gate Annotations</button>
+    <a href="/" class="btn btn-secondary w-100 mt-2">⬅ Back</a>
+
+</div>
+
+<script>
+    function toggleGate(header) {
+        const box = header.parentElement;
+        const body = box.querySelector(".gate-body");
+        body.style.display = body.style.display === "none" ? "block" : "none";
+        header.classList.toggle("collapsed");
+    }
+
+    function removeGate(btn) {
+        btn.closest(".gate-box").remove();
+    }
+
+    function saveGates() {
+        const gateBoxes = document.querySelectorAll(".gate-box");
+        const result = {};
+
+        gateBoxes.forEach(box => {
+            const origName = box.dataset.gatename;
+
+            const newName = box.querySelector(".gate-name").value.trim();
+            const parent = box.querySelector(".gate-parent").value.trim() || null;
+
+            const pos = box.querySelector(".gate-positive").value
+                .split(",").map(s => s.trim()).filter(s => s);
+
+            const neg = box.querySelector(".gate-negative").value
+                .split(",").map(s => s.trim()).filter(s => s);
+
+            // Gate structure is static — the page only edits metadata.
+            result[newName] = {
+                parent: parent,
+                positive: pos,
+                negative: neg,
+                gate: {{ gates | tojson }}[origName].gate
+            };
+        });
+
+        fetch("/api/gates", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(result)
+        })
+        .then(r => r.json())
+        .then(j => {
+            alert("Gate annotations saved!");
+            window.location.href = "/";
+        })
+        .catch(err => alert("Error saving: " + err));
+    }
+</script>
+
+</body>
+</html>
+
