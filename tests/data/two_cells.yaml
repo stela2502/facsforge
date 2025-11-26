@@ -1,0 +1,386 @@
+metadata:
+  experiment_name: FlowJoV9
+  operator: ''
+  date: '2025-11-26'
+  notes: ''
+panel:
+  'Event #':
+    fluor: null
+    role: null
+    ignore: false
+  SSC (Violet)-H:
+    fluor: null
+    role: null
+    ignore: false
+  SSC (Violet)-A:
+    fluor: null
+    role: null
+    ignore: false
+  FSC-A:
+    fluor: null
+    role: null
+    ignore: false
+  FSC-H:
+    fluor: null
+    role: null
+    ignore: false
+  Total Intensity (SSC (Imaging)):
+    fluor: null
+    role: null
+    ignore: false
+ignore_markers: []
+compensation:
+  source: none
+  path: ''
+celltypes:
+  Cells:
+    parent: null
+    gate:
+      type: polygon
+      channels:
+      - FSC-A
+      - SSC (Violet)-A
+      vertices:
+      - - 7045981.25
+        - 125891.6152494845
+      - - 88074765.625
+        - 825055.2952084709
+      - - 59387556.25
+        - 23198293.053896032
+      - - 10568971.875
+        - 19178101.894131858
+      - - 1006568.75
+        - 1699009.895157204
+    positive: []
+    negative: []
+    gate_path:
+    - Cells
+  Single Cells (SSC):
+    parent: Cells
+    gate:
+      type: polygon
+      channels:
+      - SSC (Violet)-H
+      - SSC (Violet)-A
+      vertices:
+      - - 926.9424765709
+        - 300682.5352392311
+      - - 2780.8274297127
+        - 475473.4552289778
+      - - 11586.7809571361
+        - 8515855.774757322
+      - - 13440.6659102779
+        - 19527683.734111354
+      - - 6952.0685742817
+        - 21100802.014019072
+      - - 2317.3561914272
+        - 8515855.774757322
+      - - 695.2068574282
+        - 3272128.1750649232
+    positive: []
+    negative: []
+    gate_path:
+    - Cells
+    - Single Cells (SSC)
+  Single Cells (FSC):
+    parent: Single Cells (SSC)
+    gate:
+      type: polygon
+      channels:
+      - FSC-A
+      - FSC-H
+      vertices:
+      - - 1512499.9999999998
+        - 4180.320877978
+      - - 6049999.999999999
+        - 2213.1110530472
+      - - 66549999.99999999
+        - 19180.2957930754
+      - - 86212499.99999999
+        - 27786.8387771477
+      - - 81296874.99999999
+        - 46967.1345702231
+      - - 37812499.99999999
+        - 48442.5419389212
+      - - 6049999.999999999
+        - 18196.69088061
+      - - 1890624.9999999998
+        - 10081.9503527704
+    positive: []
+    negative: []
+    gate_path:
+    - Cells
+    - Single Cells (SSC)
+    - Single Cells (FSC)
+  Single Cells (Imaging):
+    parent: null
+    gate:
+      type: polygon
+      channels:
+      - Eccentricity (FSC)
+      - Radial Moment (FSC)
+      vertices:
+      - - 0.0458333333
+        - 24.0287578186
+      - - 0.05
+        - 2.1077857736
+      - - 0.9041666667
+        - 1.2646714641
+      - - 0.9666666667
+        - 5.4802430112
+      - - 0.9583333333
+        - 28.2443293657
+      - - 0.75
+        - 37.0970296146
+      - - 0.0458333333
+        - 36.6754724599
+    positive: []
+    negative: []
+    gate_path:
+    - Single Cells (Imaging)
+  no uptake:
+    parent: Single Cells (Imaging)
+    gate:
+      type: polygon
+      channels:
+      - E.coli Lysosom Alexa Fluor 488-A (SW-unmix)
+      - L-D eF780-right*-A (SW-unmix)
+      vertices:
+      - - 804.1630126510406
+        - 2033.6217549864728
+      - - 12725.05966075365
+        - 2033.6217549864728
+      - - 12725.05966075365
+        - 31606.508536145415
+      - - 804.1630126510406
+        - 31606.508536145415
+    positive: []
+    negative: []
+    gate_path:
+    - Cells
+    - Single Cells (SSC)
+    - Single Cells (FSC)
+    - Single Cells (Imaging)
+    - no uptake
+  Erythrocytes:
+    parent: Phagocytosis 2
+    gate:
+      type: polygon
+      channels:
+      - FSC-A
+      - Total Intensity (SSC (Imaging))
+      vertices:
+      - - 30954658.90183028
+        - 1632698.7239331524
+      - - 20535773.710482527
+        - 2401027.5351958126
+      - - 36692595.67387687
+        - 3090777.2634884273
+      - - 49678452.57903493
+        - 3553520.752089802
+      - - 74593178.03660564
+        - 3553520.752089802
+      - - 84861064.89184691
+        - 2889964.0514538684
+      - - 87881031.61397669
+        - 1772394.871435454
+      - - 86220049.91680531
+        - 550053.5807903133
+      - - 70365224.62562394
+        - 157158.1659400895
+      - - 51943427.620632276
+        - 61117.064532257
+      - - 44393510.81530781
+        - 96041.1014078325
+      - - 44997504.15973377
+        - 497667.5254769502
+      - - 54510399.334442586
+        - 951680.0048594311
+      - - 43789517.47088186
+        - 1362037.4381474426
+    positive: []
+    negative: []
+    gate_path:
+    - Cells
+    - Single Cells (SSC)
+    - Single Cells (FSC)
+    - Single Cells (Imaging)
+    - Phagocytosis 2
+    - Erythrocytes
+  Leukocytes:
+    parent: Phagocytosis 2
+    gate:
+      type: polygon
+      channels:
+      - FSC-A
+      - Total Intensity (SSC (Imaging))
+      vertices:
+      - - 4076955.074875207
+        - 445281.470163587
+      - - 7700915.141430947
+        - 366702.3871935422
+      - - 12834858.569051579
+        - 253199.267347922
+      - - 21290765.39101497
+        - 401626.4240691177
+      - - 31860648.918469213
+        - 1030259.0878294758
+      - - 24612728.785357732
+        - 1632698.7239331524
+      - - 14646838.602329448
+        - 2086711.203315633
+      - - 754991.6805324458
+        - 707211.7467304028
+    positive: []
+    negative: []
+    gate_path:
+    - Cells
+    - Single Cells (SSC)
+    - Single Cells (FSC)
+    - Single Cells (Imaging)
+    - Phagocytosis 2
+    - Leukocytes
+  Leukocytes2:
+    parent: Phagocytosis 2
+    gate:
+      type: polygon
+      channels:
+      - FSC-A
+      - Total Intensity (SSC (Imaging))
+      vertices:
+      - - 23253743.76039933
+        - 375433.3964124361
+      - - 28840682.19633943
+        - 200813.2120345588
+      - - 37749584.02662229
+        - 279392.2950046036
+      - - 43336522.46256239
+        - 497667.5254769502
+      - - 45299500.831946746
+        - 654825.6914170397
+      - - 38504575.707154736
+        - 1012797.069391688
+      - - 31558652.246256232
+        - 960411.0140783249
+      - - 23555740.43261231
+        - 506398.534695844
+    positive: []
+    negative: []
+    gate_path:
+    - Cells
+    - Single Cells (SSC)
+    - Single Cells (FSC)
+    - Single Cells (Imaging)
+    - Phagocytosis 2
+    - Leukocytes2
+  Leukocytes3:
+    parent: Phagocytosis 2
+    gate:
+      type: polygon
+      channels:
+      - FSC-A
+      - Total Intensity (SSC (Imaging))
+      vertices:
+      - - 39108569.05158069
+        - 1047721.1062672634
+      - - 44393510.81530781
+        - 794521.8389193416
+      - - 49074459.23460898
+        - 969142.0232972187
+      - - 45903494.17637271
+        - 1196148.2629884593
+      - - 38655574.04326122
+        - 1405692.484241912
+      - - 34125623.96006655
+        - 1004066.0601727942
+    positive: []
+    negative: []
+    gate_path:
+    - Cells
+    - Single Cells (SSC)
+    - Single Cells (FSC)
+    - Single Cells (Imaging)
+    - Phagocytosis 2
+    - Leukocytes3
+  Particles:
+    parent: Phagocytosis 2
+    gate:
+      type: polygon
+      channels:
+      - FSC-A
+      - Total Intensity (SSC (Imaging))
+      vertices:
+      - - 1509983.3610648916
+        - 375433.3964124361
+      - - 2415973.3777038264
+        - 157158.1659400895
+      - - 3925956.738768718
+        - 52386.0553133632
+      - - 7398918.469217968
+        - 34924.0368755754
+      - - 10569883.527454242
+        - 209544.2212534527
+      - - 7549916.805324458
+        - 357971.3779746484
+      - - 2717970.049916805
+        - 410357.4332880116
+    positive: []
+    negative: []
+    gate_path:
+    - Cells
+    - Single Cells (SSC)
+    - Single Cells (FSC)
+    - Single Cells (Imaging)
+    - Phagocytosis 2
+    - Particles
+  Phagocytosis 1:
+    parent: Single Cells (Imaging)
+    gate:
+      type: polygon
+      channels:
+      - E.coli Lysosom Alexa Fluor 488-A (SW-unmix)
+      - L-D eF780-right*-A (SW-unmix)
+      vertices:
+      - - 14995.377530814221
+        - 2077.5459047113245
+      - - 125248.66569972108
+        - 2077.5459047113245
+      - - 125248.66569972108
+        - 32471.19870105632
+      - - 14995.377530814221
+        - 32471.19870105632
+    positive: []
+    negative: []
+    gate_path:
+    - Cells
+    - Single Cells (SSC)
+    - Single Cells (FSC)
+    - Single Cells (Imaging)
+    - Phagocytosis 1
+  Phagocytosis 2:
+    parent: Single Cells (Imaging)
+    gate:
+      type: polygon
+      channels:
+      - E.coli Lysosom Alexa Fluor 488-A (SW-unmix)
+      - L-D eF780-right*-A (SW-unmix)
+      vertices:
+      - - 171614.00747356875
+        - 2033.6217549864728
+      - - 3545780.5110759516
+        - 2033.6217549864728
+      - - 3545780.5110759516
+        - 33360.288434793656
+      - - 171614.00747356875
+        - 33360.288434793656
+    positive: []
+    negative: []
+    gate_path:
+    - Cells
+    - Single Cells (SSC)
+    - Single Cells (FSC)
+    - Single Cells (Imaging)
+    - Phagocytosis 2
+celltypes_of_interest: []
+umap:
+  enabled: false

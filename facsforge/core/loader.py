@@ -199,6 +199,11 @@ def load_experiment(config_path):
     # ----- Load JSON Schema -----
     schema = _load_schema()
 
+    for name, cell in data["celltypes"].items():
+        g = cell.get("gate", {})
+        if isinstance(g.get("min"), list) or isinstance(g.get("max"), list):
+            print("🚨 BAD GATE:", name, g)
+
     # ----- Validate against schema -----
     _validate_schema(data, schema)
 

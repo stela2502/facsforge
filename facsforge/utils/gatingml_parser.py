@@ -81,53 +81,33 @@ def parse_polygon_gate(poly_el):
 # =====================================================================
 
 def parse_rectangle_gate(rect_el):
-    """
-    Parse a RectangleGate from Gating-ML v2.0:
-
-    <ns0:RectangleGate>
-        <ns0:dimension>...</ns0:dimension>
-        <ns0:interval ns1:low="..." ns1:high="..."/>
-    </ns0:RectangleGate>
-
-    This is a 2-D rectangular gate defined by two dimensions and one interval PER dimension.
-    """
-
     dims = rect_el.findall(f"{NS_G}dimension")
     if len(dims) != 2:
         print("WARNING: RectangleGate has !=2 dimensions")
         return None
 
-    # -------- channel names --------
-    channels = []
-    for d in dims:
-        name = _get_dim_name(d)
-        if name:
-            channels.append(name)
+    # Channel names
+    ch_x = _get_dim_name(dims[0])
+    ch_y = _get_dim_name(dims[1])
 
-    # -------- intervals --------
-    intervals = rect_el.findall(f"{NS_G}interval")
-    if len(intervals) != 2:
-        print("WARNING: RectangleGate has invalid interval count")
-        return None
+    # Bounds
+    x_min = float(dims[0].get(f"{NS_G}min") or dims[0].get("min"))
+    x_max = float(dims[0].get(f"{NS_G}max") or dims[0].get("max"))
+    y_min = float(dims[1].get(f"{NS_G}min") or dims[1].get("min"))
+    y_max = float(dims[1].get(f"{NS_G}max") or dims[1].get("max"))
 
-    # extract low/high with ns1:low and ns1:high
-    def _get_low_high(iv):
-        low = float(iv.get(f"{NS_D}low") or iv.get("low"))
-        high = float(iv.get(f"{NS_D}high") or iv.get("high"))
-        return low, high
-
-    x_low, x_high = _get_low_high(intervals[0])
-    y_low, y_high = _get_low_high(intervals[1])
-
-    # Represent rectangle as two corners
+    # Represent as polygon
     return {
-        "type": "rectangle",
-        "channels": channels,
+        "type": "polygon",
+        "channels": [ch_x, ch_y],
         "vertices": [
-            [x_low, y_low],
-            [x_high, y_high],
-        ],
+            [x_min, y_min],
+            [x_max, y_min],
+            [x_max, y_max],
+            [x_min, y_max],
+        ]
     }
+
 
 
 # =====================================================================

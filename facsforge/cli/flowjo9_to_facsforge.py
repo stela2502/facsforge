@@ -49,7 +49,8 @@ def extract_panel_v9(root):
     return panel
 
 def parse_gate_v9(g_el):
-    return parse_gatingml_gate(g_el)
+    data = parse_gatingml_gate(g_el)
+    return data
 
 
 # ============================================================
@@ -61,7 +62,7 @@ def extract_population_tree(root):
     Extract FlowJo v9 population hierarchy using xml.etree (no getparent()).
 
     Returns:
-        pop_parent:  { pop_name → parent_pop_name or None }
+        pop_parent:  { pop_name → parent population name or None }
         pop_gateid: { pop_name → gate_id or None }
     """
 
@@ -145,57 +146,54 @@ def extract_gate_names(root):
             names[gid] = name_el.text.strip()
     return names
 
-
 def build_yaml_hierarchy(celltypes, root):
     """
-    Adds 'parent' field to each celltype in YAML.
-    celltypes: dict { name → {...} }
-    parents: dict { gate_id → parent_gate_id }
-    names: dict { gate_id → gate_name }
+    Insert parent relationships into celltypes using hierarchy from ExternalPopNode.
     """
-    # Build reverse lookup: name → id
 
-    pop_parent, pop_gateid = extract_population_tree(root)
+    hierarchy = extract_gate_path_from_external_nodes(root)
 
-    # ---- 2. Get Gating-ML ID → name mapping
-    gate_names = extract_gate_names(root)
+    for pop_name, obj in celltypes.items():
+        path = hierarchy.get(pop_name)
 
-    # ---- 3. Get Gating-ML ID → parent ID mapping
-    gate_parents = extract_gate_parents(root)
+        # Store gate_path if available
+        if path:
+            obj["gate_path"] = path
 
-    # ---- 4. Build reverse map: name → GatingML ID
-    name_to_gid = {v: k for k, v in gate_names.items()}
+            # Assign parent from path if possible
+            if len(path) >= 2:
+                obj["parent"] = path[-2]
+            else:
+                obj["parent"] = None
 
-    # ---- 5. Assign YAML parent for each celltype
-    for cname in celltypes.keys():
+        else:
+            obj["gate_path"] = [pop_name]
+            obj["parent"] = None
 
-        # Find gate ID for this population
-        gid = name_to_gid.get(cname)
-        if gid is None:
-            celltypes[cname]["parent"] = None
+def extract_gate_path_from_external_nodes(root):
+    """
+    Extract gating hierarchy from FlowJo ExternalPopNode entries.
+    Returns: dict { population_name -> gate_path[] }
+    """
+    paths = {}
+
+    for node in root.findall(".//ExternalPopNode"):
+        pop = node.find(".//BD_CellView_Lens")
+        if pop is None:
             continue
 
-        # Try population parent mapping first (most accurate)
-        for pop_name, pgid in pop_gateid.items():
-            if pgid == gid:
-                parent_pop = pop_parent.get(pop_name)
-                if parent_pop in celltypes:
-                    celltypes[cname]["parent"] = parent_pop
-                else:
-                    celltypes[cname]["parent"] = None
-                break
-        else:
-            # Fallback: gatingML parent_id
-            parent_gid = gate_parents.get(gid)
-            if parent_gid:
-                parent_name = gate_names.get(parent_gid)
-                if parent_name in celltypes:
-                    celltypes[cname]["parent"] = parent_name
-                else:
-                    celltypes[cname]["parent"] = None
-            else:
-                celltypes[cname]["parent"] = None
+        name = pop.get("population")
+        raw = pop.get("path")
 
+        if not name or not raw:
+            continue
+
+        # Normalize and split
+        path = [p.strip() for p in raw.split("/") if p.strip()]
+
+        paths[name] = path
+
+    return paths
 
 # ============================================================
 # Top-level conversion
@@ -204,7 +202,10 @@ def build_yaml_hierarchy(celltypes, root):
 def convert_v9(wsp_path, experiment_name="FlowJoV9"):
     root = load_flowjo9_xml(wsp_path)
 
+    print ("flowjo9_to_facsforge - working!")
+
     celltypes = extract_celltypes_v9(root)
+    paths = extract_gate_path_from_external_nodes(root)
     
     build_yaml_hierarchy(celltypes, root )
     panel = extract_panel_v9(root)

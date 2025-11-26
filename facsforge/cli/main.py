@@ -5,6 +5,8 @@ from facsforge.core.validate_schema import validate_config
 from facsforge.core.merge import merge_configs, load_existing_yaml
 from datetime import date
 
+print(">>> facsforge.cli.main loaded")
+
 def main():
     parser = argparse.ArgumentParser(
         prog="facsforge",
@@ -31,6 +33,7 @@ def main():
         help="Run the gating + analysis pipeline on an FCS file."
     )
     analyze.add_argument("fcs_file", help="Path to FCS file")
+    analyze.add_argument("index_csv", help="Path to the index sorted cells csv")
     analyze.add_argument("config_file", help="YAML experiment config")
     analyze.add_argument(
         "-o", "--outdir",
@@ -71,7 +74,7 @@ def main():
 
     elif args.command == "analyze-facs":
         from facsforge.cli.analyze_facs import cmd_analyze_facs
-        return cmd_analyze_facs(args.fcs_file, args.config_file, args.outdir)
+        return cmd_analyze_facs(args.fcs_file, args.config_file, args.index_csv, args.outdir)
 
     elif args.command == "flowjo9_to_facsforge":
         from facsforge.cli.flowjo9_to_facsforge import convert_v9
@@ -108,3 +111,9 @@ def main():
     else:
         parser.print_help()
         return 1
+
+
+if __name__ == "__main__":
+    import sys
+    print(">>> CLI ENTRYPOINT HIT", sys.argv)
+    main()   # or whatever your function is called

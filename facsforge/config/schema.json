@@ -64,7 +64,10 @@
           "parent": {
             "type": ["string", "null"]
           },
-
+          "gate_path": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
           "gate": {
             "type": "object",
             "properties": {
@@ -87,6 +90,7 @@
                   "maxItems": 2
                 }
               },
+              
 
               "channel": { "type": "string" },
               "min": { "type": "number" },

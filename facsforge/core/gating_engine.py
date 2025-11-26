@@ -5,6 +5,7 @@ from pathlib import Path
 import flowkit as fk
 from flowkit._models.gates import *
 # flowutils and fcsparser available for extensions later
+from flowkit import Dimension
 
 from facsforge.core.thresholds import compute_auto_thresholds
 from facsforge.core.transforms import prepare_markers
@@ -12,6 +13,9 @@ from facsforge.utils.logging import log_info, log_warn, log_error
 
 from .index import load_index_csv, merge_index_with_fcs, check_well_conflicts
 
+## for the plotting
+import matplotlib.pyplot as plt
+from flowutils import logicle_c as _logicle
 
 def merge_with_index_data(df_raw, index_paths):
     index_list = []
@@ -39,7 +43,7 @@ def _apply_compensation(sample, experiment):
 
     if source == "none":
         log_info("No compensation applied (source: none).")
-        return sample.get_events(), sample.channels
+        return sample.get_events(source="raw"), sample.channels
 
     if source == "fcs":
         if not sample.has_comp_matrix:
@@ -62,42 +66,112 @@ def _apply_compensation(sample, experiment):
 
     raise ValueError(f"Invalid compensation source: {source}")
 
+def _normalize_channel(ch):
+    return ch.replace(" (SW-unmix)", "").strip()
+
+def _strip_front_progressively(name):
+    """
+    Generates candidates by stripping leftmost tokens:
+    'E.coli Lysosom Alexa Fluor 488-A' ->
+      'Lysosom Alexa Fluor 488-A'
+      'Alexa Fluor 488-A'
+      'Fluor 488-A'
+      '488-A'
+    """
+    parts = name.split()
+    return [" ".join(parts[i:]) for i in range(1, len(parts))]
+
+def _validate_channels(df, channels):
+    """
+    Validates channel existence and returns Vec<Dimension>.
+    Rust-equivalent: fn validate_channels(...) -> Vec<Dimension>
+    """
+    dims = []
+
+    for ch in channels:
+        # 1) exact match
+        if ch in df.columns:
+            dims.append(Dimension(ch))
+            continue
+
+        # 2) strip '(SW-unmix)' and retry
+        ch2 = _normalize_channel(ch)
+        if ch2 in df.columns:
+            print(f"[FACSForge] Channel normalized: '{ch}' -> '{ch2}'")
+            dims.append(Dimension(ch2))
+            continue
+        # 3. Progressive strip from front
+        for candidate in _strip_front_progressively(ch2):
+            if candidate in df.columns:
+                print(f"[FACSForge] Channel reduced: '{ch}' -> '{candidate}'")
+                dims.append(Dimension(candidate))
+                break
+        else: #only runs if for did not break
+            # 3) fail loudly and honestly
+            raise RuntimeError(
+                f"Missing FCS channel: {ch}\n"
+                f"Available: {list(df.columns)}"
+            )
+
+    return dims
 
 def _apply_gate(df, gate_def, gate_name):
     """
     Executes a gate definition (polygon, rectangle, threshold).
     """
     gtype = gate_def["type"]
+    df.columns = [c[1] if isinstance(c, tuple) else c for c in df.columns]
 
+    # ------------------------------------------------------------------
+    # POLYGON GATE
+    # ------------------------------------------------------------------
     if gtype == "polygon":
         channels = gate_def["channels"]
+        dims = _validate_channels(df,channels)
+
         vertices = gate_def["vertices"]
 
         gate = PolygonGate(
             gate_name=gate_name,
-            channels=channels,
+            dimensions=dims,
             vertices=vertices
         )
-        mask = gate.gate(df[channels].to_numpy())
+
+        mask = gate.apply(df)
         return df[mask]
 
+    # ------------------------------------------------------------------
+    # RECTANGLE GATE
+    # ------------------------------------------------------------------
     if gtype == "rectangle":
-        ch1, ch2 = gate_def["channels"]
+        channels = gate_def["channels"]
+        dims = _validate_channels(df, channels)
+        ch1, ch2 = channels
+
+        vertices = gate_def["vertices"]
+
         g = RectangleGate(
             gate_name=gate_name,
-            channels=[ch1, ch2],
-            x_min=min(v[0] for v in gate_def["vertices"]),
-            x_max=max(v[0] for v in gate_def["vertices"]),
-            y_min=min(v[1] for v in gate_def["vertices"]),
-            y_max=max(v[1] for v in gate_def["vertices"])
+            dimensions=dims,
+            x_min=min(v[0] for v in vertices),
+            x_max=max(v[0] for v in vertices),
+            y_min=min(v[1] for v in vertices),
+            y_max=max(v[1] for v in vertices),
         )
-        mask = g.gate(df[[ch1, ch2]].to_numpy())
+
+        mask = g.gate(df)
         return df[mask]
 
+    # ------------------------------------------------------------------
+    # THRESHOLD GATE
+    # ------------------------------------------------------------------
     if gtype == "threshold":
         ch = gate_def["channel"]
+        _validate_channels([ch])
+
         mn = gate_def.get("min", -np.inf)
         mx = gate_def.get("max", np.inf)
+
         mask = (df[ch] >= mn) & (df[ch] <= mx)
         return df[mask]
 
@@ -126,6 +200,11 @@ def _apply_marker_rules(df, rules, thresholds):
 
     return subset
 
+def _apply_compensation(sample, experiment):
+    try:
+        return sample.get_events(), sample.channels
+    except AttributeError:
+        return sample.get_events(source="raw"), sample.channels
 
 def _run_gating_tree(df_raw, experiment):
     """
@@ -181,8 +260,217 @@ def _run_gating_tree(df_raw, experiment):
 
     return gated
 
+def _plot_population(sub_df, gate_def, name, outdir):
+    """
+    Create a plot for a gated population and save it as PNG.
 
-def run_gating_pipeline(fcs_path, experiment, outdir):
+    gate_def: dict with at least 'type' and either 'channels' or 'channel'.
+    name: population name (string).
+    outdir: pathlib.Path
+    """
+    gtype = gate_def.get("type")
+    fig, ax = plt.subplots()
+
+    if gtype in ("polygon", "rectangle"):
+        ch1, ch2 = gate_def["channels"]
+        if ch1 not in sub_df.columns or ch2 not in sub_df.columns:
+            # Fallback: don't crash plotting if something is off
+            plt.close(fig)
+            return
+
+        ax.scatter(sub_df[ch1], sub_df[ch2], s=2)
+        ax.set_xlabel(ch1)
+        ax.set_ylabel(ch2)
+        ax.set_title(f"{name}: {gtype} gate on {ch1} vs {ch2}")
+
+        fname = outdir / f"gated_{name}_{ch1}_vs_{ch2}.png"
+
+    elif gtype == "threshold":
+        ch = gate_def["channel"]
+        if ch not in sub_df.columns:
+            plt.close(fig)
+            return
+
+        ax.hist(sub_df[ch], bins=100)
+        ax.set_xlabel(ch)
+        ax.set_ylabel("Count")
+        ax.set_title(f"{name}: threshold gate on {ch}")
+
+        fname = outdir / f"gated_{name}_{ch}_hist.png"
+
+    else:
+        # Unknown gate type – optional fallback: FSC vs SSC if available
+        if "FSC-A" in sub_df.columns and "SSC (Imaging)-A" in sub_df.columns:
+            ax.scatter(sub_df["FSC-A"], sub_df["SSC (Imaging)-A"], s=2)
+            ax.set_xlabel("FSC-A")
+            ax.set_ylabel("SSC (Imaging)-A")
+            ax.set_title(f"{name}: FSC vs SSC (fallback)")
+            fname = outdir / f"gated_{name}_FSC_vs_SSC.png"
+        else:
+            plt.close(fig)
+            return
+
+    fig.tight_layout()
+    fig.savefig(fname, dpi=150)
+    plt.close(fig)
+
+def _plot_nice_population(
+    parent_df,
+    sub_df,
+    index_df,
+    gate_def,
+    name,
+    outdir,
+    density=False,
+    logicle=True,
+):
+    """
+    Matplotlib + logicle (biexponential) cytometry plotting.
+    Produces FlowJo-like scaling with parent background + gated + index overlays.
+    """
+
+    # ----------------------------------
+    # Lazy import for logicle
+    # ----------------------------------
+    try:
+        from flowutils import logicle_c as _logicle
+        _HAS_LOGICLE = True
+
+        # Figure out the callable inside the module (works across flowutils versions)
+        if hasattr(logicle_c, "logicle"):
+            _logicle = logicle_c.logicle
+        elif hasattr(logicle_c, "logicle_transform"):
+            _logicle = logicle_c.logicle_transform
+        elif hasattr(logicle_c, "transform"):
+            _logicle = logicle_c.transform
+        else:
+            raise ImportError("flowutils.logicle_c has no callable logicle function")
+    except Exception:
+        _HAS_LOGICLE = False
+        if logicle:
+            print("[FACSForge] flowutils not available — falling back to linear axes")
+
+    # ----------------------------------
+    # Output path
+    # ----------------------------------
+    out_file = outdir / f"{name.replace(' ', '_')}.png"
+
+    # ----------------------------------
+    # Channels from gate
+    # ----------------------------------
+    gate = gate_def.get("gate", {})
+    channels = gate.get("channels")
+
+    if not channels or len(channels) != 2:
+        print(f"[FACSForge] Skipping plot for {name} — not a 2D gate.")
+        return
+
+    ch1, ch2 = _validate_channels(parent_df, channels)
+    ch1 = ch1.id
+    ch2 = ch2.id
+
+
+    # ----------------------------------
+    # Transform helper
+    # ----------------------------------
+    def _xform(x):
+        x = np.asarray(x, dtype=float)
+        if logicle and _HAS_LOGICLE:
+            # Auto-parameters give robust behavior without manual tuning
+            return _logicle(x)
+        return x
+
+    # ----------------------------------
+    # Prepare data (drop invalid rows)
+    # ----------------------------------
+    parent = parent_df[[ch1, ch2]].dropna()
+    gated = sub_df[[ch1, ch2]].dropna()
+    index = index_df.dropna()
+    # ----------------------------------
+    # Apply transform
+    # ----------------------------------
+    Xp = _xform(parent[ch1].values)
+    Yp = _xform(parent[ch2].values)
+
+    Xg = _xform(gated[ch1].values)
+    Yg = _xform(gated[ch2].values)
+
+    # --------------------------
+    # APPLY TRANSFORM TO INDEX
+    # --------------------------
+    if (
+        index is not None
+        and not index.empty
+        and ch1 in index.columns
+        and ch2 in index.columns
+    ):
+        Xi = _xform(index[ch1].values)
+        Yi = _xform(index[ch2].values)
+    else:
+        if index is not None:
+            missing = [c for c in (ch1, ch2) if c not in index.columns]
+            if missing:
+                print(f"[FACSForge] Index overlay skipped for {name} — missing columns: {missing}")
+        Xi = Yi = None
+
+    # ----------------------------------
+    # Create plot
+    # ----------------------------------
+    fig, ax = plt.subplots(figsize=(6, 5))
+
+    # Background (parent)
+    ax.scatter(
+        Xp, Yp,
+        s=3,
+        c="#1f1f1f",
+        alpha=0.30,
+        linewidths=0,
+        label="Parent",
+        zorder=1,
+    )
+
+    # Gated
+    ax.scatter(
+        Xg, Yg,
+        s=6,
+        c="dodgerblue",
+        alpha=0.95,
+        linewidths=0,
+        label="Gated",
+        zorder=3,
+    )
+
+    # Index overlay
+    if Xi is not None:
+        ax.scatter(
+            Xi, Yi,
+            s=50,
+            c="crimson",
+            edgecolors="black",
+            linewidths=0.7,
+            label="Index",
+            zorder=4,
+        )
+
+    # ----------------------------------
+    # Cosmetics
+    # ----------------------------------
+    ax.set_title(name)
+    ax.set_xlabel(ch1 + (" (logicle)" if _logicle and _HAS_LOGICLE else ""))
+    ax.set_ylabel(ch2 + (" (logicle)" if _logicle and _HAS_LOGICLE else ""))
+
+    # Optional density look (cheap KDE via rasterization)
+    if density:
+        ax.set_rasterized(True)
+
+    ax.legend(frameon=False)
+    fig.tight_layout()
+    fig.savefig(out_file, dpi=200)
+    plt.close(fig)
+
+    print(f"[FACSForge] Wrote plot → {out_file}")
+
+def run_gating_pipeline(fcs_path, index_csv, experiment, outdir):
     """
     Main entry point for the FACSForge gating engine.
     Produces:
@@ -193,11 +481,14 @@ def run_gating_pipeline(fcs_path, experiment, outdir):
     outdir = Path(outdir)
     outdir.mkdir(parents=True, exist_ok=True)
 
+    
+
     # -------------------------------------------------------
-    # 1. Load FCS
+    # 1. Load files (FCS + index)
     # -------------------------------------------------------
     log_info(f"Loading FCS file: {fcs_path}")
     sample = fk.Sample(str(fcs_path))
+    overlay = load_index_csv( index_csv )
 
     # -------------------------------------------------------
     # 2. Compensation
@@ -216,12 +507,34 @@ def run_gating_pipeline(fcs_path, experiment, outdir):
     populations = _run_gating_tree(df, experiment)
 
     # -------------------------------------------------------
-    # 5. Export gated subsets
+    # 5. Export gated subsets + plots
     # -------------------------------------------------------
     for name, sub in populations.items():
         dest = outdir / f"gated_{name}.csv"
         sub.to_csv(dest, index=False)
         log_info(f"Wrote {len(sub)} events → {dest}")
+
+        # Look up gate definition
+        gate_def = experiment.get("celltypes", {}).get(name)
+        if gate_def is None:
+            continue
+
+        # Identify parent population (if any)
+        parent_name = gate_def.get("parent")
+        parent_df = populations.get(parent_name, df)
+
+        # Call overlay plotter
+        _plot_nice_population(
+            parent_df=parent_df,
+            sub_df=sub,
+            index_df=overlay,
+            gate_def=gate_def,
+            name=name,
+            outdir=outdir
+        )
+
+        log_info(f"Wrote overlay plot for {name} → {outdir}")
+
 
     return populations
 
