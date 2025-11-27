@@ -33,7 +33,7 @@ def load_index_csv(path):
     df = pd.read_csv(path, skiprows=header_line)
 
     # Normalize column names: remove spaces
-    df.columns = [c.strip().replace(" ", "") for c in df.columns]
+    #df.columns = [c.strip().replace(" ", "") for c in df.columns]
 
     # Detect Event or EventIndex column
     event_col = None

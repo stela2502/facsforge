@@ -10,7 +10,7 @@ def test_valid_config_loads(data_dir):
     data = load_experiment(cfg)
     assert "panel" in data
     assert "celltypes" in data
-    assert data["celltypes"]["Singlets"]["parent"] is None
+    assert data["celltypes"]["singlets"]["parent"] == "debris"
 
 
 # -----------------------------

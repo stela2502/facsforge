@@ -50,3 +50,59 @@ def test_flowjo2own_cli_runs():
 
     # check the analysis (later)
 
+    # --------------------------
+    # EXPECTED OUTPUT FILES
+    # --------------------------
+
+    expected_csv = {
+        "gated_Cells.csv": 3306,
+        "gated_Erythrocytes.csv": 15,
+        "gated_Leukocytes.csv": 1,
+        "gated_Leukocytes2.csv": 1,
+        "gated_Leukocytes3.csv": 8,
+        "gated_Particles.csv": 1,
+        "gated_Phagocytosis 1.csv": 218,
+        "gated_Phagocytosis 2.csv": 33,
+        "gated_Single Cells (FSC).csv": 2477,
+        "gated_Single Cells (Imaging).csv": 2179,
+        "gated_Single Cells (SSC).csv": 2717,
+        "gated_no uptake.csv": 1549,
+    }
+
+    expected_png = [
+        "Particles_FSC-A_Total_Intensity_SSC_Imaging_.png",
+        "Leukocytes2_FSC-A_Total_Intensity_SSC_Imaging_.png",
+        "Single_Cells_SSC_SSC_Violet_-H_SSC_Violet_-A.png",
+        "Cells_FSC-A_SSC_Violet_-A.png",
+        "Leukocytes3_FSC-A_Total_Intensity_SSC_Imaging_.png",
+        "Single_Cells_FSC_FSC-A_FSC-H.png",
+        "Single_Cells_Imaging_Eccentricity_FSC_Radial_Moment_FSC_.png",
+        "Erythrocytes_FSC-A_Total_Intensity_SSC_Imaging_.png",
+        "Phagocytosis_1_Alexa_Fluor_488-A_eF780-right_-A.png",
+        "Phagocytosis_2_Alexa_Fluor_488-A_eF780-right_-A.png",
+        "Leukocytes_FSC-A_Total_Intensity_SSC_Imaging_.png",
+        "no_uptake_Alexa_Fluor_488-A_eF780-right_-A.png",
+    ]
+
+    # --------------------------
+    # CSV FILE VALIDATION
+    # --------------------------
+    import pandas as pd
+
+    for fname, expected_rows in expected_csv.items():
+        csv_path = os.path.join(out_analysis, fname)
+        assert os.path.exists(csv_path), f"Missing CSV output: {fname}"
+
+        df = pd.read_csv(csv_path)
+        assert len(df) == expected_rows, (
+            f"{fname}: expected {expected_rows} rows, got {len(df)}"
+        )
+
+    # --------------------------
+    # PNG FILE VALIDATION
+    # --------------------------
+
+    for fname in expected_png:
+        p = os.path.join(out_analysis, fname)
+        assert os.path.exists(p), f"Missing PNG output: {fname}"
+        assert os.path.getsize(p) > 1000, f"{fname} is suspiciously small (broken image)"

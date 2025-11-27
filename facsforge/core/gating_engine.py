@@ -15,7 +15,21 @@ from .index import load_index_csv, merge_index_with_fcs, check_well_conflicts
 
 ## for the plotting
 import matplotlib.pyplot as plt
-from flowutils import logicle_c as _logicle
+import re
+
+def safe_filename(s: str) -> str:
+    """
+    Make string filesystem-safe:
+    - Replace spaces with _
+    - Remove or replace unsafe characters (*, /, \, :, ?, etc.)
+    """
+    s = s.strip()
+    s = s.replace(" ", "_")
+    # Keep only: letters, numbers, underscore, dash, dot
+    s = re.sub(r"[^A-Za-z0-9._-]", "_", s)
+    # Collapse multiple underscores
+    s = re.sub(r"_+", "_", s)
+    return s
 
 def merge_with_index_data(df_raw, index_paths):
     index_list = []
@@ -314,6 +328,31 @@ def _plot_population(sub_df, gate_def, name, outdir):
     fig.savefig(fname, dpi=150)
     plt.close(fig)
 
+def _find_well_column(df):
+    for k in ("Well", "well", "WELL", "RowCol", "rowcol"):
+        if k in df.columns:
+            return k
+    return None
+
+_SCATTER_RE = re.compile(
+    r"""
+    (
+        FSC |
+        SSC |
+        TIME
+    )
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+
+def scale_info(name: str):
+    if _SCATTER_RE.search(name) is not None:
+        return False, name         # scatter → linear
+    else:
+        return True, f"{name} (scaled)"  # fluorescence → logicle
+
+
 def _plot_nice_population(
     parent_df,
     sub_df,
@@ -328,32 +367,47 @@ def _plot_nice_population(
     Matplotlib + logicle (biexponential) cytometry plotting.
     Produces FlowJo-like scaling with parent background + gated + index overlays.
     """
+    # Global flags / handles
+    _HAS_LOGICLE = False
+    _logicle = None
 
     # ----------------------------------
     # Lazy import for logicle
     # ----------------------------------
     try:
-        from flowutils import logicle_c as _logicle
-        _HAS_LOGICLE = True
-
+        from flowutils import logicle_c as _logicle      
         # Figure out the callable inside the module (works across flowutils versions)
-        if hasattr(logicle_c, "logicle"):
-            _logicle = logicle_c.logicle
-        elif hasattr(logicle_c, "logicle_transform"):
-            _logicle = logicle_c.logicle_transform
-        elif hasattr(logicle_c, "transform"):
-            _logicle = logicle_c.transform
+        if hasattr(_logicle, "logicle"):
+            _logicle = _logicle.logicle
+        elif hasattr(_logicle, "logicle_transform"):
+            _logicle = _logicle.logicle_transform
+        elif hasattr(_logicle, "logicle_scale"):
+            _logicle = _logicle.logicle_scale
         else:
             raise ImportError("flowutils.logicle_c has no callable logicle function")
-    except Exception:
+        _HAS_LOGICLE = True
+    except Exception as e:
         _HAS_LOGICLE = False
-        if logicle:
-            print("[FACSForge] flowutils not available — falling back to linear axes")
+        _logicle = None
+        print(f"[FACSForge] flowutils.logicle_c not available — falling back to linear axes: {e}")
+
 
     # ----------------------------------
-    # Output path
+    # Transform helper
     # ----------------------------------
-    out_file = outdir / f"{name.replace(' ', '_')}.png"
+    def _xform(x, cn):
+        x = np.asarray(x, dtype=float)
+        if (_logicle is not None and _HAS_LOGICLE) and scale_info(cn)[0] :
+            # Auto-parameters give robust behavior without manual tuning
+            # FlowJo-like defaults (safe starting values)
+            T = 262144.0   # top of scale (~18-bit)
+            W = 0.5        # linear width around zero
+            M = 4.5        # decades
+            A = 0.0        # linearization
+
+            return _logicle(T, W, M, A, x)
+            #return _logicle(x)
+        return x
 
     # ----------------------------------
     # Channels from gate
@@ -369,31 +423,44 @@ def _plot_nice_population(
     ch1 = ch1.id
     ch2 = ch2.id
 
+    try:
+        ch_idx_1, ch_idx_2 = _validate_channels(index_df, channels)
+        ch_idx_1 = ch_idx_1.id
+        ch_idx_2 = ch_idx_2.id
+        index = index_df.dropna()
+        well_col = _find_well_column(index)
+        if well_col:
+            wells = index[well_col].astype(str).values
+        else:
+            wells = None
+            print("[FACSForge] Index overlay has no well column")
+    except RuntimeError as e:
+        print(f"[FACSForge] WARNING: {e}")
+        ch_idx_1 = ch_idx_2 = None
+        index = None
+
+
+    print(f"Plotting subset {name} and columns {ch1} + {ch2} ")
 
     # ----------------------------------
-    # Transform helper
+    # Output path
     # ----------------------------------
-    def _xform(x):
-        x = np.asarray(x, dtype=float)
-        if logicle and _HAS_LOGICLE:
-            # Auto-parameters give robust behavior without manual tuning
-            return _logicle(x)
-        return x
+    out_file = outdir / safe_filename(f"{name}_{ch1}_{ch2}.png")
 
     # ----------------------------------
     # Prepare data (drop invalid rows)
     # ----------------------------------
     parent = parent_df[[ch1, ch2]].dropna()
     gated = sub_df[[ch1, ch2]].dropna()
-    index = index_df.dropna()
+    
     # ----------------------------------
     # Apply transform
     # ----------------------------------
-    Xp = _xform(parent[ch1].values)
-    Yp = _xform(parent[ch2].values)
+    Xp = _xform(parent[ch1].values, ch1)
+    Yp = _xform(parent[ch2].values, ch2)
 
-    Xg = _xform(gated[ch1].values)
-    Yg = _xform(gated[ch2].values)
+    Xg = _xform(gated[ch1].values, ch1)
+    Yg = _xform(gated[ch2].values, ch2)
 
     # --------------------------
     # APPLY TRANSFORM TO INDEX
@@ -401,11 +468,11 @@ def _plot_nice_population(
     if (
         index is not None
         and not index.empty
-        and ch1 in index.columns
-        and ch2 in index.columns
+        and ch_idx_1 in index.columns
+        and ch_idx_2 in index.columns
     ):
-        Xi = _xform(index[ch1].values)
-        Yi = _xform(index[ch2].values)
+        Xi = _xform(index[ch_idx_1].values, ch_idx_1)
+        Yi = _xform(index[ch_idx_2].values, ch_idx_2)
     else:
         if index is not None:
             missing = [c for c in (ch1, ch2) if c not in index.columns]
@@ -444,20 +511,41 @@ def _plot_nice_population(
     if Xi is not None:
         ax.scatter(
             Xi, Yi,
-            s=50,
+            s=5,
             c="crimson",
             edgecolors="black",
             linewidths=0.7,
             label="Index",
             zorder=4,
         )
+    # ----------------------------------
+    # Annotate wells at index positions
+    # ----------------------------------
+    if wells is not None:
+        for x, y, w in zip(Xi, Yi, wells):
+            ax.text(
+                x, y,
+                w,
+                fontsize=9,
+                weight="bold",
+                color="black",
+                ha="left",
+                va="bottom",
+                zorder=5,
+                bbox=dict(
+                    boxstyle="round,pad=0.2",
+                    facecolor="white",
+                    alpha=0.75,
+                    edgecolor="none"
+                )
+            )
 
     # ----------------------------------
     # Cosmetics
     # ----------------------------------
-    ax.set_title(name)
-    ax.set_xlabel(ch1 + (" (logicle)" if _logicle and _HAS_LOGICLE else ""))
-    ax.set_ylabel(ch2 + (" (logicle)" if _logicle and _HAS_LOGICLE else ""))
+    ax.set_title( name )
+    ax.set_xlabel( scale_info(ch2)[1] )
+    ax.set_ylabel( scale_info(ch2)[1] )
 
     # Optional density look (cheap KDE via rasterization)
     if density:
