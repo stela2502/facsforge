@@ -50,6 +50,117 @@ cd facsforge
 pip install -e .
 ```
 
+## Usage
+
+`facsforge` provides a command-line interface for generating experiment configurations, importing FlowJo projects, and executing fully automated cytometry analyses.
+
+All functionality is accessed through the `facsforge` CLI with subcommands.
+
+---
+
+### Generate a starter config from an FCS file
+
+Create a YAML configuration scaffold directly from an input FCS file.  
+This inspects the channel header and produces a template config you can edit.
+
+```bash
+facsforge flowjo9_to_facsforge -o my_config_file.yaml my_flowjo_project.wsp
+```
+
+This will convert the FlowJo project into a yaml structured config file.
+
+---
+
+### Run the analysis pipeline
+
+Run the full gating and analysis workflow defined in a YAML config:
+
+```bash
+facsforge analyze-facs  -o results/analysis sort_data.fcs sort_data.csv my_config_file.yaml
+```
+
+Arguments:
+
+- `sample.fcs` — input flow cytometry file  
+- `index.csv` — index sorting metadata (optional but recommended)  
+- `gates.yaml` — YAML configuration defining gates and metadata  
+- `-o results/analysis` — output directory (default: `analysis_out`)  
+
+Outputs include:
+
+- `gated_*.csv` — gated populations
+- `*.png` — scatter plots and fluorescence plots
+- index overlay (if provided)
+
+---
+
+### Import a FlowJo workspace (main feature)
+
+facsforge can directly convert FlowJo project files into executable YAML pipelines.
+
+#### FlowJo v9 (XML-based)
+
+```bash
+facsforge flowjo9_to_facsforge project.wsp -o facsforge.yaml --name ExperimentName
+```
+
+#### FlowJo v10 (ZIP-based)
+
+```bash
+facsforge flowjo10_to_facsforge project.wsp -o facsforge.yaml --name ExperimentName
+```
+
+The generated YAML:
+
+- preserves gating structure
+- imports compensation information (if present)
+- adds metadata and experiment name
+- validates itself before being written
+
+You can immediately run the result:
+
+```bash
+facsforge analyze-facs sample.fcs index.csv facsforge.yaml
+```
+
+---
+
+### Validation and merging behavior
+
+- Existing YAML files are automatically merged when importing FlowJo projects.
+- Missing metadata (date, compensation path) is filled automatically.
+- YAML is validated against an internal schema before writing.
+- Any schema error aborts conversion with a readable validation message.
+
+---
+
+### Debugging
+
+All CLI commands print diagnostic information on failure.  
+When importing FlowJo v9, the parsed YAML structure is printed prior to validation to allow inspection.
+
+---
+
+### Exit codes
+
+- `0` — success
+- `1` — input or schema error
+- non-zero — unexpected failure
+
+---
+
+### Typical workflow
+
+```bash
+# Convert FlowJo project to YAML
+facsforge flowjo10_to_facsforge project.wsp -o facsforge.yaml
+
+# Run automated analysis
+facsforge analyze-facs sample.fcs index.csv facsforge.yaml
+```
+
+---
+
 ### Using Singularity / Apptainer module (HPC)
 
 ```bash
