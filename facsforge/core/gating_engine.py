@@ -13,6 +13,8 @@ from facsforge.utils.logging import log_info, log_warn, log_error
 
 from .index import load_index_csv, merge_index_with_fcs, check_well_conflicts
 
+import warnings
+
 ## for the plotting
 import matplotlib.pyplot as plt
 import re
@@ -626,11 +628,43 @@ def run_gating_pipeline(fcs_path, index_csv, experiment, outdir):
 
     return populations
 
+def merge_fcs_files(fcs_paths):
+    """
+    Load and merge multiple FCS files into one DataFrame.
+    Adds sample_id column.
+    """
+    all_dfs = []
 
-def run_gating_pipeline_multi(fcs_paths, experiment, outdir):
+    for fcs in fcs_paths:
+        name = Path(fcs).stem
+        sample = fk.Sample(fcs)
+
+        df = pd.DataFrame(
+            sample.get_events(),
+            columns=sample.channels
+        )
+
+        df["sample_id"] = name
+        df["__fcs_file"] = str(fcs)   # optional safety metadata
+
+        all_dfs.append(df)
+
+    merged = pd.concat(all_dfs, axis=0, ignore_index=True)
+
+    return merged
+
+def run_gating_pipeline_multi(fcs_paths, index_csvs, experiment, outdir):
     """
     Runs gating on multiple FCS files and merges populations.
-    """
+    """  
+
+    warnings.warn(
+        "run_gating_pipeline_multi(): This function ANALYZES FIRST and MERGES LATER.\n"
+        "For MERGE FIRST → ANALYZE LATER behavior, use run_gating_pipeline_merged().",
+        UserWarning,
+        stacklevel=2
+    )
+
     outdir = Path(outdir)
     outdir.mkdir(parents=True, exist_ok=True)
 
@@ -650,3 +684,18 @@ def run_gating_pipeline_multi(fcs_paths, experiment, outdir):
                 merged_pops[ct] = pd.concat([merged_pops[ct], df], axis=0)
 
     return merged_pops
+
+def run_gating_pipeline_merged(fcs_paths, index_csvs, experiment, outdir):
+    """
+    Merge all FCS first, then run gating once.
+    """
+    outdir = Path(outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+
+    print("[FACSForge] Merging FCS files…")
+    merged_df = merge_fcs_files(fcs_paths)
+
+    print("[FACSForge] Running gating on merged data…")
+    pops = run_gating_pipeline_dataframe(merged_df, experiment, outdir)
+
+    return pops

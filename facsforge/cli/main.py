@@ -7,6 +7,7 @@ from datetime import date
 
 print(">>> facsforge.cli.main loaded")
 
+
 def main():
     parser = argparse.ArgumentParser(
         prog="facsforge",
@@ -22,42 +23,63 @@ def main():
         "generate-config",
         help="Generate a complete YAML config from an FCS file."
     )
-    gen.add_argument("fcs_file", help="Path to input FCS file")
-    gen.add_argument("output", help="Output YAML config file")
+    gen.add_argument("--fcs", required=True, help="Path to input FCS file")
+    gen.add_argument("--out", required=True, help="Output YAML config file")
 
     # ------------------------------------------------------------
-    # analyze-facs
+    # analyze-facs (single file)
     # ------------------------------------------------------------
     analyze = subparsers.add_parser(
         "analyze-facs",
-        help="Run the gating + analysis pipeline on an FCS file."
+        help="Run the gating + analysis pipeline on a single FCS file."
     )
-    analyze.add_argument("fcs_file", help="Path to FCS file")
-    analyze.add_argument("index_csv", help="Path to the index sorted cells csv")
-    analyze.add_argument("config_file", help="YAML experiment config")
-    analyze.add_argument(
-        "-o", "--outdir",
-        help="Output directory for results",
-        default="analysis_out"
-    )
+    analyze.add_argument("--fcs", required=True, help="Path to FCS file")
+    analyze.add_argument("--index-csv", required=True, help="Index sorted cells CSV")
+    analyze.add_argument("--config", required=True, help="YAML experiment config")
+    analyze.add_argument("--outdir", required=True, help="Output directory")
 
-    # ---------------------------------------------------------
-    # flow2own: import FlowJo WSP → YAML (NEW)
-    # ---------------------------------------------------------
-    flowjo9 = subparsers.add_parser(
-    "flowjo9_to_facsforge",
-    help="Convert FlowJo v9 XML-based WSP to FACSForge YAML."
+    # ------------------------------------------------------------
+    # analyze-merge-facs (MERGE FIRST)
+    # ------------------------------------------------------------
+    merge = subparsers.add_parser(
+        "analyze-merge-facs",
+        help="Merge FCS files first, then gate once (recommended for same-day experiments)."
     )
-    flowjo9.add_argument("wsp")
-    flowjo9.add_argument("-o", "--out", default="facsforge.yaml")
+    merge.add_argument(
+        "--fcs-files",
+        nargs="+",
+        required=True,
+        help="List of FCS files to merge (shell globbing supported)"
+    )
+    merge.add_argument("--config", required=True)
+    merge.add_argument(
+        "--index-csv",
+        nargs="+",
+        required=True,
+        help="One or more index CSV files"
+    )
+    merge.add_argument("--outdir", required=True)
+
+    # ------------------------------------------------------------
+    # flowjo9 → yaml
+    # ------------------------------------------------------------
+    flowjo9 = subparsers.add_parser(
+        "flowjo9_to_facsforge",
+        help="Convert FlowJo v9 XML-based WSP to FACSForge YAML."
+    )
+    flowjo9.add_argument("--wsp", required=True)
+    flowjo9.add_argument("--out", default="facsforge.yaml")
     flowjo9.add_argument("--name", default="FlowJoV9")
 
+    # ------------------------------------------------------------
+    # flowjo10 → yaml
+    # ------------------------------------------------------------
     flowjo10 = subparsers.add_parser(
         "flowjo10_to_facsforge",
         help="Convert FlowJo v10 ZIP-based WSP to FACSForge YAML."
     )
-    flowjo10.add_argument("wsp")
-    flowjo10.add_argument("-o", "--out", default="facsforge.yaml")
+    flowjo10.add_argument("--wsp", required=True)
+    flowjo10.add_argument("--out", default="facsforge.yaml")
     flowjo10.add_argument("--name", default="FlowJoV10")
 
     # ------------------------------------------------------------
@@ -66,46 +88,82 @@ def main():
     args = parser.parse_args()
 
     # ------------------------------------------------------------
-    # Subcommand dispatch
+    # Dispatch
     # ------------------------------------------------------------
     if args.command == "generate-config":
         from facsforge.cli.generate_config import cmd_generate_config
-        return cmd_generate_config(args.fcs_file, args.output)
+        return cmd_generate_config(args.fcs, args.out)
 
     elif args.command == "analyze-facs":
         from facsforge.cli.analyze_facs import cmd_analyze_facs
-        return cmd_analyze_facs(args.fcs_file, args.config_file, args.index_csv, args.outdir)
+        return cmd_analyze_facs(
+            args.fcs,
+            args.config,
+            args.index_csv,
+            args.outdir
+        )
+
+    elif args.command == "analyze-merge-facs":
+        if not isinstance(args.fcs_files, list):
+            args.fcs_files = [args.fcs_files]
+        if not isinstance(args.index_csv, list):
+            args.index_csv = [args.index_csv]
+
+        if len(args.fcs_files) != len(args.index_csv):
+            raise ValueError(
+                f"[FACSForge] Number mismatch:\n"
+                f"  FCS files : {len(args.fcs_files)}\n"
+                f"  Index CSV : {len(args.index_csv)}\n\n"
+                "You must provide exactly ONE index CSV per FCS file.\n"
+                "Example:\n"
+                "  --fcs-files sample1.fcs sample2.fcs \\\n"
+                "  --index-csv index1.csv index2.csv"
+            )
+        from facsforge.cli.analyze_merge_facs import cmd_analyze_merge_facs
+        return cmd_analyze_merge_facs(
+            args.fcs_files,
+            args.config,
+            args.index_csv,
+            args.outdir
+        )
 
     elif args.command == "flowjo9_to_facsforge":
         from facsforge.cli.flowjo9_to_facsforge import convert_v9
         data = convert_v9(args.wsp, args.name)
+
         existing = load_existing_yaml(args.out)
         merged = merge_configs(existing, data)
+
         if not data.get("metadata", {}).get("date"):
             today = date.today().strftime("%Y-%m-%d")
-            data["metadata"]["date"] = today
+            data.setdefault("metadata", {})["date"] = today
+
         if data.get("compensation", {}).get("path") is None:
-            data["compensation"]["path"] = ""
-        import pprint
-        print("DEBUG: Parsed YAML structure BEFORE validation:\n")
-        pprint.pprint(data)
-        print("\n-----------------------------------------\n")
+            data.setdefault("compensation", {})["path"] = ""
+
         validate_config(data)
+
         with open(args.out, "w") as f:
             yaml.safe_dump(data, f, sort_keys=False)
+
         return 0
 
     elif args.command == "flowjo10_to_facsforge":
         from facsforge.cli.flowjo10_to_facsforge import convert_v10
         data = convert_v10(args.wsp, args.name)
+
         if not data.get("metadata", {}).get("date"):
             today = date.today().strftime("%Y-%m-%d")
-            data["metadata"]["date"] = today
+            data.setdefault("metadata", {})["date"] = today
+
         if data.get("compensation", {}).get("path") is None:
-            data["compensation"]["path"] = ""
+            data.setdefault("compensation", {})["path"] = ""
+
         validate_config(data)
+
         with open(args.out, "w") as f:
             yaml.safe_dump(data, f, sort_keys=False)
+
         return 0
 
     else:
@@ -114,6 +172,5 @@ def main():
 
 
 if __name__ == "__main__":
-    import sys
     print(">>> CLI ENTRYPOINT HIT", sys.argv)
-    main()   # or whatever your function is called
+    main()
