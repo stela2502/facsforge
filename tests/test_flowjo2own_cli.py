@@ -28,7 +28,7 @@ def test_flowjo2own_cli_runs():
     # Call the CLI via subprocess to mimic real-world usage
     result = subprocess.run(
         [sys.executable, "-m", "facsforge.cli.main",
-    "flowjo9_to_facsforge", wsp_path, "-o", out_yaml],
+    "flowjo9_to_facsforge", "--wsp", wsp_path, "--out", out_yaml],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True

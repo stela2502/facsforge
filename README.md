@@ -64,7 +64,7 @@ Create a YAML configuration scaffold directly from an input FCS file.
 This inspects the channel header and produces a template config you can edit.
 
 ```bash
-facsforge flowjo9_to_facsforge -o my_config_file.yaml my_flowjo_project.wsp
+facsforge flowjo9_to_facsforge --out my_config_file.yaml --wsp my_flowjo_project.wsp
 ```
 
 This will convert the FlowJo project into a yaml structured config file.
@@ -76,7 +76,7 @@ This will convert the FlowJo project into a yaml structured config file.
 Run the full gating and analysis workflow defined in a YAML config:
 
 ```bash
-facsforge analyze-facs  -o results/analysis sort_data.fcs sort_data.csv my_config_file.yaml
+facsforge analyze-facs --outdir results/analysis --fcs sort_data.fcs --index-csv sort_data.csv --config my_config_file.yaml
 ```
 
 Arguments:
@@ -101,10 +101,12 @@ facsforge can directly convert FlowJo project files into executable YAML pipelin
 #### FlowJo v9 (XML-based)
 
 ```bash
-facsforge flowjo9_to_facsforge project.wsp -o facsforge.yaml --name ExperimentName
+facsforge flowjo9_to_facsforge --out my_config_file.yaml --wsp my_flowjo_project.wsp
 ```
 
 #### FlowJo v10 (ZIP-based)
+
+**This is currently not implemented**
 
 ```bash
 facsforge flowjo10_to_facsforge project.wsp -o facsforge.yaml --name ExperimentName
@@ -120,7 +122,7 @@ The generated YAML:
 You can immediately run the result:
 
 ```bash
-facsforge analyze-facs sample.fcs index.csv facsforge.yaml
+facsforge analyze-facs --outdir results/analysis --fcs sort_data.fcs --index-csv sort_data.csv --config my_config_file.yaml
 ```
 
 ---
@@ -153,28 +155,10 @@ When importing FlowJo v9, the parsed YAML structure is printed prior to validati
 
 ```bash
 # Convert FlowJo project to YAML
-facsforge flowjo10_to_facsforge project.wsp -o facsforge.yaml
+facsforge flowjo10_to_facsforge --wsp project.wsp --out facsforge.yaml
 
 # Run automated analysis
-facsforge analyze-facs sample.fcs index.csv facsforge.yaml
-```
-
----
-
-### Using Singularity / Apptainer module (HPC)
-
-```bash
-ml FlowUtils
-```
-
----
-
-## Usage
-
-### Basic workflow
-
-```bash
-facsforge analyze-facs     -o results/analysis     experiment.fcs     index.csv     gates.yaml
+facsforge analyze-facs --fcs sample.fcs --index-csv index.csv --config facsforge.yaml --outpath results
 ```
 
 Outputs:
@@ -185,14 +169,6 @@ results/analysis/
 ├── gated_Population2.csv
 ├── Population1_X_vs_Y.png
 └── Population2_X_vs_Y.png
-```
-
----
-
-### Convert FlowJo workspace
-
-```bash
-facsforge flowjo2own experiment.wsp > gates.yaml
 ```
 
 ---
@@ -251,8 +227,6 @@ facsforge/
 ## Contributing
 
 Contributions are welcome.
-
-Typical areas of development:
 
 - gate types
 - plotting improvements

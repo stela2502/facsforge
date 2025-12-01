@@ -32,7 +32,8 @@ def test_flowjo2own_cli_runs():
 
     # Call the CLI via subprocess to mimic real-world usage
     result = subprocess.run(
-        [sys.executable, "-m", "facsforge.cli.main", "analyze-facs", "-o", out_analysis, fcs_file, index_csv, config_file],
+        [sys.executable, "-m", "facsforge.cli.main", "analyze-facs", "--outdir", out_analysis, "--fcs", fcs_file,
+         "--index-csv", index_csv, "--config", config_file],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True

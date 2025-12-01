@@ -10,6 +10,7 @@ from flowkit import Dimension
 from facsforge.core.thresholds import compute_auto_thresholds
 from facsforge.core.transforms import prepare_markers
 from facsforge.utils.logging import log_info, log_warn, log_error
+from facsforge.core.pita import get_logicle, xform, scale_info
 
 from .index import load_index_csv, merge_index_with_fcs, check_well_conflicts
 
@@ -336,23 +337,7 @@ def _find_well_column(df):
             return k
     return None
 
-_SCATTER_RE = re.compile(
-    r"""
-    (
-        FSC |
-        SSC |
-        TIME
-    )
-    """,
-    re.IGNORECASE | re.VERBOSE,
-)
 
-
-def scale_info(name: str):
-    if _SCATTER_RE.search(name) is not None:
-        return False, name         # scatter → linear
-    else:
-        return True, f"{name} (scaled)"  # fluorescence → logicle
 
 
 def _plot_nice_population(
@@ -370,8 +355,7 @@ def _plot_nice_population(
     Produces FlowJo-like scaling with parent background + gated + index overlays.
     """
     # Global flags / handles
-    _HAS_LOGICLE = False
-    _logicle = None
+    
 
     # ----------------------------------
     # Lazy import for logicle
@@ -394,22 +378,7 @@ def _plot_nice_population(
         print(f"[FACSForge] flowutils.logicle_c not available — falling back to linear axes: {e}")
 
 
-    # ----------------------------------
-    # Transform helper
-    # ----------------------------------
-    def _xform(x, cn):
-        x = np.asarray(x, dtype=float)
-        if (_logicle is not None and _HAS_LOGICLE) and scale_info(cn)[0] :
-            # Auto-parameters give robust behavior without manual tuning
-            # FlowJo-like defaults (safe starting values)
-            T = 262144.0   # top of scale (~18-bit)
-            W = 0.5        # linear width around zero
-            M = 4.5        # decades
-            A = 0.0        # linearization
 
-            return _logicle(T, W, M, A, x)
-            #return _logicle(x)
-        return x
 
     # ----------------------------------
     # Channels from gate
@@ -458,11 +427,11 @@ def _plot_nice_population(
     # ----------------------------------
     # Apply transform
     # ----------------------------------
-    Xp = _xform(parent[ch1].values, ch1)
-    Yp = _xform(parent[ch2].values, ch2)
+    Xp = xform(parent[ch1]).values
+    Yp = xform(parent[ch2]).values
 
-    Xg = _xform(gated[ch1].values, ch1)
-    Yg = _xform(gated[ch2].values, ch2)
+    Xg = xform(gated[ch1]).values
+    Yg = xform(gated[ch2]).values
 
     # --------------------------
     # APPLY TRANSFORM TO INDEX
@@ -473,8 +442,8 @@ def _plot_nice_population(
         and ch_idx_1 in index.columns
         and ch_idx_2 in index.columns
     ):
-        Xi = _xform(index[ch_idx_1].values, ch_idx_1)
-        Yi = _xform(index[ch_idx_2].values, ch_idx_2)
+        Xi = xform(index[ch_idx_1]).values
+        Yi = xform(index[ch_idx_2]).values
     else:
         if index is not None:
             missing = [c for c in (ch1, ch2) if c not in index.columns]
@@ -628,14 +597,4 @@ def run_gating_pipeline(fcs_path, index_csv, experiment, outdir):
 
     return populations
 
-def load_all_sorted_csvs(csv_paths):
-    frames = []
-    for csv in csv_paths:
-        csv = Path(csv)
-        print(f"[FACSForge] Loading {csv.name}")
-        df = load_index_csv(csv)         # ✅ your API
-        df["__source_file"] = csv.name
-        frames.append(df)
 
-    all_cells = pd.concat(frames, axis=0, ignore_index=True)
-    return all_cells

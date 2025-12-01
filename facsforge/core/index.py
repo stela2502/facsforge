@@ -3,6 +3,9 @@
 import pandas as pd
 import numpy as np
 import re
+from facsforge.core.pita import get_logicle, xform, scale_info
+
+from pathlib import Path
 
 def detect_event_column(df):
     candidates = [c for c in df.columns if re.match(r"event|event[_ ]?id|index", c.lower())]
@@ -17,6 +20,7 @@ def load_index_csv(path):
     The file contains metadata followed by the real CSV table.
     We detect the header ("Well,...") and parse from there.
     """
+
 
     # Detect header line
     header_line = None
@@ -71,3 +75,48 @@ def check_well_conflicts(index_df):
     conflicts = index_df["Well"].value_counts()
     conflicts = conflicts[conflicts > 1]
     return conflicts
+
+def load_all_sorted_csvs(csv_paths):
+    frames = []
+    for csv in csv_paths:
+        csv = Path(csv)
+        print(f"[FACSForge] Loading {csv.name}")
+        df = load_index_csv(csv)         # ✅ your API
+        df["__source_file"] = csv.name
+        frames.append(df)
+
+    all_cells = pd.concat(frames, axis=0, ignore_index=True)
+
+    print(f"[FACSForge] Merged {len(frames)} CSVs → {len(all_cells)} events")
+
+    # --------------------------------------------------
+    # Add logicle-scaled columns (DO NOT overwrite)
+    # --------------------------------------------------
+    _HAS_LOGICLE, _logicle = get_logicle()
+    if not _HAS_LOGICLE:
+        return all_cells
+
+    scaled_count = 0
+
+    for col in list(all_cells.columns):  # list() to avoid mutating during iter
+        try:
+            s = all_cells[col]
+
+            do_scale, new_name = scale_info(col)
+
+            if not do_scale:
+                continue
+
+            # apply transform (returns pd.Series)
+            scaled_series = xform(s, col)
+
+            # rename + add column
+            all_cells[scaled_series.name] = scaled_series
+            scaled_count += 1
+
+        except Exception as e:
+            print(f"[WARN] Skipping column '{col}': {e}")
+
+    print(f"[FACSForge] Added {scaled_count} scaled channels (raw preserved)")
+
+    return all_cells
