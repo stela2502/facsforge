@@ -544,7 +544,7 @@ def _plot_nice_population(
     # Cosmetics
     # ----------------------------------
     ax.set_title( name )
-    ax.set_xlabel( scale_info(ch2)[1] )
+    ax.set_xlabel( scale_info(ch1)[1] )
     ax.set_ylabel( scale_info(ch2)[1] )
 
     # Optional density look (cheap KDE via rasterization)
