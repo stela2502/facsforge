@@ -39,28 +39,6 @@ def main():
     analyze.add_argument("--outdir", required=True, help="Output directory")
 
     # ------------------------------------------------------------
-    # analyze-merge-facs (MERGE FIRST)
-    # ------------------------------------------------------------
-    merge = subparsers.add_parser(
-        "analyze-merge-facs",
-        help="Merge FCS files first, then gate once (recommended for same-day experiments)."
-    )
-    merge.add_argument(
-        "--fcs-files",
-        nargs="+",
-        required=True,
-        help="List of FCS files to merge (shell globbing supported)"
-    )
-    merge.add_argument("--config", required=True)
-    merge.add_argument(
-        "--index-csv",
-        nargs="+",
-        required=True,
-        help="One or more index CSV files"
-    )
-    merge.add_argument("--outdir", required=True)
-
-    # ------------------------------------------------------------
     # flowjo9 → yaml
     # ------------------------------------------------------------
     flowjo9 = subparsers.add_parser(
@@ -98,30 +76,6 @@ def main():
         from facsforge.cli.analyze_facs import cmd_analyze_facs
         return cmd_analyze_facs(
             args.fcs,
-            args.config,
-            args.index_csv,
-            args.outdir
-        )
-
-    elif args.command == "analyze-merge-facs":
-        if not isinstance(args.fcs_files, list):
-            args.fcs_files = [args.fcs_files]
-        if not isinstance(args.index_csv, list):
-            args.index_csv = [args.index_csv]
-
-        if len(args.fcs_files) != len(args.index_csv):
-            raise ValueError(
-                f"[FACSForge] Number mismatch:\n"
-                f"  FCS files : {len(args.fcs_files)}\n"
-                f"  Index CSV : {len(args.index_csv)}\n\n"
-                "You must provide exactly ONE index CSV per FCS file.\n"
-                "Example:\n"
-                "  --fcs-files sample1.fcs sample2.fcs \\\n"
-                "  --index-csv index1.csv index2.csv"
-            )
-        from facsforge.cli.analyze_merge_facs import cmd_analyze_merge_facs
-        return cmd_analyze_merge_facs(
-            args.fcs_files,
             args.config,
             args.index_csv,
             args.outdir

@@ -628,74 +628,14 @@ def run_gating_pipeline(fcs_path, index_csv, experiment, outdir):
 
     return populations
 
-def merge_fcs_files(fcs_paths):
-    """
-    Load and merge multiple FCS files into one DataFrame.
-    Adds sample_id column.
-    """
-    all_dfs = []
+def load_all_sorted_csvs(csv_paths):
+    frames = []
+    for csv in csv_paths:
+        csv = Path(csv)
+        print(f"[FACSForge] Loading {csv.name}")
+        df = load_index_csv(csv)         # ✅ your API
+        df["__source_file"] = csv.name
+        frames.append(df)
 
-    for fcs in fcs_paths:
-        name = Path(fcs).stem
-        sample = fk.Sample(fcs)
-
-        df = pd.DataFrame(
-            sample.get_events(),
-            columns=sample.channels
-        )
-
-        df["sample_id"] = name
-        df["__fcs_file"] = str(fcs)   # optional safety metadata
-
-        all_dfs.append(df)
-
-    merged = pd.concat(all_dfs, axis=0, ignore_index=True)
-
-    return merged
-
-def run_gating_pipeline_multi(fcs_paths, index_csvs, experiment, outdir):
-    """
-    Runs gating on multiple FCS files and merges populations.
-    """  
-
-    warnings.warn(
-        "run_gating_pipeline_multi(): This function ANALYZES FIRST and MERGES LATER.\n"
-        "For MERGE FIRST → ANALYZE LATER behavior, use run_gating_pipeline_merged().",
-        UserWarning,
-        stacklevel=2
-    )
-
-    outdir = Path(outdir)
-    outdir.mkdir(parents=True, exist_ok=True)
-
-    merged_pops = {}
-
-    for fcs in fcs_paths:
-        name = Path(fcs).stem
-        pops = run_gating_pipeline(fcs, experiment, outdir / name)
-
-        for ct, df in pops.items():
-            df = df.copy()
-            df["sample_id"] = name
-
-            if ct not in merged_pops:
-                merged_pops[ct] = df
-            else:
-                merged_pops[ct] = pd.concat([merged_pops[ct], df], axis=0)
-
-    return merged_pops
-
-def run_gating_pipeline_merged(fcs_paths, index_csvs, experiment, outdir):
-    """
-    Merge all FCS first, then run gating once.
-    """
-    outdir = Path(outdir)
-    outdir.mkdir(parents=True, exist_ok=True)
-
-    print("[FACSForge] Merging FCS files…")
-    merged_df = merge_fcs_files(fcs_paths)
-
-    print("[FACSForge] Running gating on merged data…")
-    pops = run_gating_pipeline_dataframe(merged_df, experiment, outdir)
-
-    return pops
+    all_cells = pd.concat(frames, axis=0, ignore_index=True)
+    return all_cells
