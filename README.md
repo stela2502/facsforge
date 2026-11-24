@@ -62,29 +62,32 @@ All functionality is accessed through the `facsforge` CLI with subcommands.
 
 Create a YAML configuration scaffold directly from an input FCS file.  
 This inspects the channel header and produces a template config you can edit.
+So you likely do not need a new flowjo analysis for ever single set of data.
 
 ```bash
-facsforge flowjo9_to_facsforge --out my_config_file.yaml --wsp my_flowjo_project.wsp
+facsforge flowjo9_to_facsforge --out my_gate_config_file.yaml --wsp my_flowjo_project.wsp
 ```
 
-This will convert the FlowJo project into a yaml structured config file.
-
+This will convert the FlowJo project ``my_flowjo_project.wsp`` into a yaml structured config file ``my_gate_config_file.yaml``.
+You can and should modify the yaml file to fit your sorting strategy.
 ---
 
 ### Run the analysis pipeline
 
-Run the full gating and analysis workflow defined in a YAML config:
+Run the full gating and analysis workflow defined in the YAML config you just created from your FlowJo analysis:
 
 ```bash
-facsforge analyze-facs --outdir results/analysis --fcs sort_data.fcs --index-csv sort_data.csv --config my_config_file.yaml
+facsforge analyze-facs --outdir results/analysis --fcs sort_data.fcs --index-csv index.csv --config my_gate_config_file.yaml
 ```
 
 Arguments:
 
-- `sample.fcs` — input flow cytometry file  
+- `sort_data.fcs` — input flow cytometry file  
 - `index.csv` — index sorting metadata (optional but recommended)  
-- `gates.yaml` — YAML configuration defining gates and metadata  
+- `my_gate_config_file.yaml` — YAML configuration defining gates and metadata  
 - `-o results/analysis` — output directory (default: `analysis_out`)  
+
+Both ``sort_data.fcs`` and ``index.csv`` are data files from your experiment (adjust the names accordingly).
 
 Outputs include:
 
@@ -101,7 +104,7 @@ facsforge can directly convert FlowJo project files into executable YAML pipelin
 #### FlowJo v9 (XML-based)
 
 ```bash
-facsforge flowjo9_to_facsforge --out my_config_file.yaml --wsp my_flowjo_project.wsp
+facsforge flowjo9_to_facsforge --out my_gate_config_file.yaml --wsp my_flowjo_project.wsp
 ```
 
 #### FlowJo v10 (ZIP-based)
@@ -122,9 +125,10 @@ The generated YAML:
 You can immediately run the result:
 
 ```bash
-facsforge analyze-facs --outdir results/analysis --fcs sort_data.fcs --index-csv sort_data.csv --config my_config_file.yaml
+facsforge analyze-facs --outdir results/analysis --fcs sort_data.fcs --index-csv 'index.csv' --config my_gate_config_file.yaml
 ```
 
+Both ``sort_data.fcs`` and ``index.csv`` are data files from your experiment (adjust the names accordingly).
 ---
 
 ### Validation and merging behavior

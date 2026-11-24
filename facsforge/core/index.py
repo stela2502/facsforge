@@ -96,7 +96,7 @@ def load_all_sorted_csvs(csv_paths):
     if not _HAS_LOGICLE:
         return all_cells
 
-    scaled_count = 0
+    scaled_columns = {}
 
     for col in list(all_cells.columns):  # list() to avoid mutating during iter
         try:
@@ -108,15 +108,18 @@ def load_all_sorted_csvs(csv_paths):
                 continue
 
             # apply transform (returns pd.Series)
-            scaled_series = xform(s, col)
+            scaled_series = xform(s)
 
             # rename + add column
-            all_cells[scaled_series.name] = scaled_series
-            scaled_count += 1
+            scaled_columns[scaled_series.name] = scaled_series
 
         except Exception as e:
             print(f"[WARN] Skipping column '{col}': {e}")
 
-    print(f"[FACSForge] Added {scaled_count} scaled channels (raw preserved)")
+    # Attach scaled columns once
+    if scaled_columns:
+        scaled_df = pd.DataFrame(scaled_columns, index=all_cells.index)
+        all_cells = pd.concat([all_cells, scaled_df], axis=1)
+        print(f"[FACSForge] Added {len(scaled_columns)} scaled channels")
 
     return all_cells
